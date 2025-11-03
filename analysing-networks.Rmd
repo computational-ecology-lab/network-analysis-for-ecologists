@@ -104,9 +104,11 @@ The code below will enable you to download the edgelist file and use it to creat
 
 ```{r}
 library(RCurl)
+require(ggplot2)
 x <- getURL("https://raw.githubusercontent.com/mlurgi/networks_for_r/master/datasets/benguela.edgelist")
 benguela.EL <- read.table(text = x) 
 benguela.EL <- as.matrix(benguela.EL)
+benguela.EL <- benguela.EL + 1  # Because the species indices start from 0 on the file
 ```
 
 
@@ -164,7 +166,7 @@ Try and calculate the total number of anemone *and* fish species in the network.
 ```{r}
 library(RCurl)
 y <- getURL("https://raw.githubusercontent.com/mlurgi/networks_for_r/master/datasets/anemonefish.txt")
-anemonef <- read.table(text = y)
+anemonef <- read.table('/Users/miguel/Documents/networks_for_r/datasets/anemonefish.txt')
 names(anemonef) <- paste("A", 1:10, sep = "")
 row.names(anemonef) <- paste("F", 1:26, sep = "")       
 anemonef <- as.matrix(anemonef)
@@ -232,17 +234,6 @@ Check out the documentation for  [graph.adjacency](http://igraph.org/r/doc/graph
 We can convert the network for the Benguela ecosystem, into and igraph object using the following code. 
 
 ```{r}
-library(RCurl)
-x <- getURL("https://raw.githubusercontent.com/mlurgi/networks_for_r/master/datasets/benguela.edgelist")
-benguela.EL <- read.table(text = x) 
-benguela.EL <- as.matrix(benguela.EL)
-
-# Create an adjacency matrix called benguela.AM, containing only zeros
-benguela.AM <- matrix(0, max(benguela.EL), max(benguela.EL))
-
-# Introduce ones to the matrix to represent interactions between species
-benguela.AM[benguela.EL] <- 1
-
 # Convert Benguela adjacency matrix to an igraph network
 benguela.network <- graph.adjacency(benguela.AM)
 ```
@@ -257,7 +248,7 @@ Let's try it!
 
 ```{r, eval=FALSE}
 # Plotting your network
-plot(network)
+plot(benguela.network)
 ```
 
 If the instructions above worked well you will be able to see something like this:
@@ -332,13 +323,6 @@ We have also learnt that the way in which bipartite networks are represented in 
 Using the fish-anemone interaction network that we used previously, we can calculate the total number of possible links as the product of the number of species on one side (i.e. fish) times the number of species on the other side (i.e. anemone). This will give us the total number of links if every fish species would be found to interact with each anemone species. Connectance of this network is then simply the total number of links divided by this quantity.
 
 ```{r}
-library(RCurl)
-y <- getURL("https://raw.githubusercontent.com/seblun/networks_datacamp/master/datasets/anemonefish.txt")
-anemonef <- read.table(text = y)
-names(anemonef) <- paste("A", 1:10, sep = "")
-row.names(anemonef) <- paste("F", 1:26, sep = "")       
-anemonef <- as.matrix(anemonef)
-
 # Calculate conectance of anemoref
 bipartite.connectance <- sum(anemonef) / (dim(anemonef)[1] * dim(anemonef)[2])
         
@@ -474,18 +458,6 @@ FractionOfIntermediate <- function(M){
 For the Benguela food web we can obtain these properties using the functions defined above.
 
 ```{r}
-
-library(RCurl)
-x <- getURL("https://raw.githubusercontent.com/mlurgi/networks_for_r/master/datasets/benguela.edgelist")
-benguela.EL <- read.table(text = x) 
-benguela.EL <- as.matrix(benguela.EL)
-
-# Create an adjacency matrix called benguela.AM, containing only zeros
-benguela.AM <- matrix(0, max(benguela.EL), max(benguela.EL))
-
-# Introduce ones to the matrix to represent interactions between species
-benguela.AM[benguela.EL] <- 1
-
 gen <- Generality(benguela.AM)
 vul <- Vulnerability(benguela.AM)
 sdgen <- SDGenerality(benguela.AM)
@@ -530,6 +502,8 @@ MeanFoodChainLength <- function(M){
   return(sum(ch_lens)/length(ch_lens));
 }
 
+print(MeanFoodChainLength(benguela.AM))
+
 ```
 
 ### 1.6.6 Degree Distributions
@@ -566,7 +540,42 @@ lines(temp$x, predict(mod1, list(x = temp$x)), col='red')
 ```
 
 
-### 1.6.7 Modularity
+### 1.6.9 Centrality and Clustering
+
+Different centrality measures exist. Here we will focus on **betweenness centrality**, which measures how frequently a node appears on the shortest path between other nodes in the graph. This is a node-level metric that can be used to rank nodes according to their importance in terms of how central they are in the network.
+
+```{r}
+# Betweenness centrality using igraph
+between <- igraph::betweenness(benguela.network)
+
+between_df <- data.frame(vertex=as.numeric(V(benguela.network)), between)
+between_df <- between_df[order(between_df$between, decreasing = TRUE),]
+between_df$rank <- 1:dim(between_df)[1]
+
+ggplot(between_df, aes(rank, between)) + geom_point(colour='orange', size=3) + theme_bw() +
+  xlab('Rank') + ylab('Betweenness Centrality') + 
+  geom_text(aes(label=vertex), vjust=-.5)
+
+```
+
+Clustering coefficient The extent to which neighbours of a node are also connected between them. Clustering coefficient is linked to the idea of **small-world networks**.
+
+```{r}
+# Clustering Coefficient using igraph
+ccs <- igraph::transitivity(benguela.network, type='local')
+
+ccs_df <- data.frame(vertex=as.numeric(V(benguela.network)), ccs)
+ccs_df <- ccs_df[-which(is.nan(ccs)),]
+ccs_df <- ccs_df[order(ccs_df$ccs, decreasing = TRUE),]
+ccs_df$rank <- 1:dim(ccs_df)[1]
+
+ggplot(ccs_df, aes(rank, ccs)) + geom_point(colour='navy', size=3) + theme_bw() +
+  xlab('Rank') + ylab('Clustering Coefficient') + 
+  geom_text(aes(label=vertex), vjust=-.5)
+
+```
+
+### 1.6.8 Modularity
 Modularity is a way of quantifying the extent to which a network is organised into subcommunities within which their nodes are more connected amongst themselves than to the rest of the network. It can be quantified using the formula:
 
 $$
@@ -593,7 +602,18 @@ where $k_{is}$ is the number of links of node $i$ to nodes in module $s$ and $k_
 The P-Z space can be classified into 7 roles that nodes can assume in a network, as proposed by Guimerà and Nunes Amaral (2005), which allow us to characterise nodes according to different profiles from ultra-peripheral (nodes that are only connected within their modules) to kinless hubs (nodes that are very connected to all modules in the network).
 
 
-### 1.6.8 Nestedness
+```{r}
+require(rnetcarto)
+# Calculate modularity using the netcarto algorithm
+modularity <- netcarto(benguela.AM)
+
+print(modularity)
+
+plot(benguela.network, vertex.color=rainbow(4), layout=layout_with_gem, edge.arrow.size = 0.2)
+
+```
+
+### 1.6.9 Nestedness
 
 Nestedness allows us to quantify the extent to which the species composition (or composition interaction partners if thinking of a plant animal interaction network) of less speciose communities (or interacting partners of specialist species in a network) are proper subsets of more diverse communities (or of the set of interacting partners of generalist species if thinking about a bipartite interaction network). 
 This network property can be quantified using the Nestedness metric based on Overlap and Decreasing Fill proposed by Almeida-Neto et al. (2008):
@@ -604,6 +624,16 @@ $$
 
 where $N_{paired}$ is a score that quantifies the overlap between communities (or diets) of contiguous rows and columns in a community matrix (or incidence matrix for bipartite networks) and $n$ and $m$ are the number of rows and columns in the matrix respectively.
 
+
+```{r}
+require(bipartite)
+# Calculating nestedness using the NODF metric
+plotweb(t(anemonef))
+
+nested_anemone <- nest.smdm(t(anemonef))
+
+print(nested_anemone)
+```
 
 ## References
 
