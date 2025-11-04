@@ -1,6 +1,8 @@
 ---
 title: "Network Analysis for Ecologists (NWAE01)"
-output: html_document
+output:
+  html_document:
+    pandoc_args:  "--webtex"
 date: "2025-10-30"
 author: Miguel Lurgi
 ---
@@ -104,7 +106,6 @@ The code below will enable you to download the edgelist file and use it to creat
 
 ```{r}
 library(RCurl)
-require(ggplot2)
 x <- getURL("https://raw.githubusercontent.com/mlurgi/networks_for_r/master/datasets/benguela.edgelist")
 benguela.EL <- read.table(text = x) 
 benguela.EL <- as.matrix(benguela.EL)
@@ -164,9 +165,8 @@ As an example, we load a matrix representing a bipartite network of interactions
 Try and calculate the total number of anemone *and* fish species in the network. Remember that in a bipartite network, one set of species (in this case, anemones) are represented as columns, while the other set (in this case, fishes) are represented as rows.
 
 ```{r}
-library(RCurl)
 y <- getURL("https://raw.githubusercontent.com/mlurgi/networks_for_r/master/datasets/anemonefish.txt")
-anemonef <- read.table('/Users/miguel/Documents/networks_for_r/datasets/anemonefish.txt')
+anemonef <- read.table(text = y)
 names(anemonef) <- paste("A", 1:10, sep = "")
 row.names(anemonef) <- paste("F", 1:26, sep = "")       
 anemonef <- as.matrix(anemonef)
@@ -227,7 +227,7 @@ network[5,7] <- 1
 
 ### 1.5.2 Converting matrix to igraph object
 
-If we have an adjacency matrix and we want an igraph object representing the same network, without the need to create the network from scratch, igraph offers the functionality of creating graphs from adjacency matrices. Just use the function `graph.adjacency(A)`, where A is your adjacency matrix.
+If we have an adjacency matrix and we want an igraph object representing the same network, without the need to create the network from scratch, igraph offers the functionality of creating graphs from adjacency matrices. Just use the function `graph_from_adjacency_matrix(A)`, where A is your adjacency matrix.
 
 Check out the documentation for  [graph.adjacency](http://igraph.org/r/doc/graph_from_adjacency_matrix.html), including additional parameters that you can use to create your network. Similarly, to create a graph from an edgelist, you can use the `graph_from_edgelist`function from igraph.
 
@@ -235,7 +235,7 @@ We can convert the network for the Benguela ecosystem, into and igraph object us
 
 ```{r}
 # Convert Benguela adjacency matrix to an igraph network
-benguela.network <- graph.adjacency(benguela.AM)
+benguela.network <- graph_from_adjacency_matrix(benguela.AM)
 ```
 
 ### 1.5.3 Drawing networks
@@ -388,7 +388,10 @@ Even though these measures are useful to have an idea of the average diet breadt
 
 To assess variability in diet breadth and the degree of vulnerability of species in a food web, metrics such as the standard deviation of normalised generality and vulnerability are useful. These properties can be calculated using the following formulae:
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<img src="https://latex.codecogs.com/svg.latex?\Large&space;G_{i}&space;=&space;\frac{1}{L/S}\sum_{j=1}^{S}a_{ji}" title="Generality" />    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;    <img src="https://latex.codecogs.com/svg.latex?\Large&space;V_{i}&space;=&space;\frac{1}{L/S}\sum_{j=1}^{S}a_{ij}" title="Vulnerability" />
+***Generality***
+$$G_i = \frac{1}{L/S}\sum_{j=1}^{S}a_{ji}$$
+***Vulnerability***
+$$V_i = \frac{1}{L/S}\sum_{j=1}^{S}a_{ij}$$
 
 where a<sub>ij</sub> are the i,j values of the adjacency matrix `A` representing the food web.
 
@@ -545,6 +548,7 @@ lines(temp$x, predict(mod1, list(x = temp$x)), col='red')
 Different centrality measures exist. Here we will focus on **betweenness centrality**, which measures how frequently a node appears on the shortest path between other nodes in the graph. This is a node-level metric that can be used to rank nodes according to their importance in terms of how central they are in the network.
 
 ```{r}
+require(ggplot2)
 # Betweenness centrality using igraph
 between <- igraph::betweenness(benguela.network)
 
@@ -602,7 +606,7 @@ where $k_{is}$ is the number of links of node $i$ to nodes in module $s$ and $k_
 The P-Z space can be classified into 7 roles that nodes can assume in a network, as proposed by Guimerà and Nunes Amaral (2005), which allow us to characterise nodes according to different profiles from ultra-peripheral (nodes that are only connected within their modules) to kinless hubs (nodes that are very connected to all modules in the network).
 
 
-```{r}
+```{r warning=FALSE, echo=TRUE, error=FALSE, message=FALSE}
 require(rnetcarto)
 # Calculate modularity using the netcarto algorithm
 modularity <- netcarto(benguela.AM)
@@ -625,7 +629,7 @@ $$
 where $N_{paired}$ is a score that quantifies the overlap between communities (or diets) of contiguous rows and columns in a community matrix (or incidence matrix for bipartite networks) and $n$ and $m$ are the number of rows and columns in the matrix respectively.
 
 
-```{r}
+```{r warning=FALSE, echo=TRUE, error=FALSE, message=FALSE}
 require(bipartite)
 # Calculating nestedness using the NODF metric
 plotweb(t(anemonef))
