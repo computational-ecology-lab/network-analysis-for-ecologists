@@ -11,6 +11,8 @@ author: Miguel Lurgi
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# 1 Methods for network analysis
+
 ## 1.1 What is a network?
 
 A network (or graph in mathematics) is a set of elements with specific characteristic relationships between them. We call the elements vertices (or nodes) and the relations between them edges (or links). In the picture below we can see a network composed of 8 nodes and 10 links between them. 
@@ -308,7 +310,7 @@ For the Benguela network we can calculate connectivity properties:
 connectance <- ecount(benguela.network) / vcount(benguela.network)^2 
 
 # Print connectance va
-print(paste0('Connectance of Benguela network =', round(connectance,2)))
+print(paste0('Connectance of Benguela network = ', round(connectance,2)))
 
 # Calculate number of links per species
 links.per.species <- ecount(benguela.network) / vcount(benguela.network)

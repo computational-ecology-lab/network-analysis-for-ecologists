@@ -1,0 +1,382 @@
+---
+title: "Network Analysis for Ecologists (NWAE01)"
+author: "Miguel Lurgi"
+date: "2025-11-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 2 Modelling Network Dynamics
+
+## 2.1 Single populations
+
+In ecology we are interested in studying the dynamics (i.e. changes in numbers through time) of natural populations. There are several motivations to do this, amongst them: (1) a better understanding of the factors influencing populations and (2) making useful and informed predictions for conservation and management.
+
+When modelling populations we are going to think about them in terms of **variables** and **functions** acting on these variables. We will focus on the abundance of populations as our variable of interest.
+
+We will call that variable $N$.
+
+### 2.1.1 Exponential Growth
+
+The simplest model of population dynamics is **exponential growth**.
+
+Exponential growth happens when each individual of the population subject of study creates a number of offspring larger than 1 during each reproductive time step.
+
+The general mathematical formula that formalises this process is:
+
+$$N_{t+1} = R * N_t$$
+
+Where $N_t$ represents the size of the population (either number of individuals, biomass, density, or any other measure), $N$, at time $t$. 
+
+On the other hand, $R$ represents the **finite rate of population increase**, or in terms of number of individuals, the (mean) number of offspring each member of the population produces per time step. 
+
+**Assumption:** This model assumes total population replacement (i.e. all parents die after reproducing). Due to this assumption, this model is most appropriate for species **with non-overlapping generations** (e.g. many insects).
+
+Thus, this equation tells us that the population at time $t+1$ equals the population at time $t$ multiplied by the finite rate of increase $R$.
+
+If $R$ is set to 2, for example, the population doubles each time step. If $R = 0.5$, it will half every time step. Let’s translate the equation above from its mathematical form into a language understandable by our computers, in our case, R.
+
+In R, we write the exponential equation above thus:
+
+```{r model}
+# Exponential population growth equation
+# N[t+1] <- R*N[t]
+```
+
+For this code to work we need to have a vector to store our initial values of $N$ (the variable we are keeping track of).
+
+We additionally need to **define parameter** $R$ and also an extra variable $tsteps$ that will tell the program for how many time steps we want to run our model 
+
+```{r run-the-model}
+# Exponential population growth equation
+N <- matrix(0, nrow=10, ncol=1)
+R <- 2					# finite rate of increase
+N[1] <- 1					# Initial population size
+tsteps <- 10				# Length of time series
+
+for(t in 1:(tsteps-1)){
+	N[t+1] <- R*N[t]
+}
+
+# And now we plot the outcome: remembering to add axes labels
+# type = ‘b’ plots both lines and symbols
+plot(N, xlab = 'Time', ylab = 'Population size', type='b')
+
+```
+
+## What might be wrong with our model?
+
+In nature, populations do not grow exponentially. They are normally limited by ecological processes such as **competition for resources or space**.
+
+To account for these phenomena, we need to modify our models and make them a bit more realistic. One way of achieving this is be modifying the population growth function we saw above by making the growth rate itself a **function of population density**.
+
+This gives rise to a different kind of population growth models, which in their general form can be written as:
+
+$$N_{t+1} = N_t * f(N_t)$$
+
+Since our aim is to find a mathematical expression that displays a saturating (or sigmoidal) shape we choose a [**logistic function**](https://en.wikipedia.org/wiki/Logistic_function)
+
+
+**Note:** Luckily there are many known functions in mathematics that ecologists use when they want to represent or **model** a given qualitative relationship between variables
+
+The logistic function is:
+
+$$f(x)={\frac {L}{1+e^{-k(x-x_{0})}}}$$
+Assuming $L=1$, $k=1$ and $x_0=0$, we obtain the **standard logistic function**:
+
+$$f(x)={\frac {1}{1+e^{-x}}}$$
+
+We can plot this function in R to see if we get the desired relationship:
+
+```{r logistic-function}
+logistic_function <- function(x, x0, k, L){
+  return (L / (1 + exp(-k * (x-x0))))
+}
+
+x <- seq(-7,7, by=.1)
+L=1
+k=1
+x0=0
+
+plot(x, logistic_function(x, x0, k, L), ylab='y', type='l')
+```
+
+### 2.1.2 Density-Dependent Population Growth
+
+In density-dependent population models, we commonly use saturating logistic functions of $N$ to reflect the fact that populations under density-dependent growth are drawn towards an **equilibrium** population value that is called the **carrying capacity** ($K$). This parameter is key in this type of models and you can think of it as the maximum number of individuals of that population that the environment can "sustain".
+
+One of the most popular logistic models for population growth is the [**Ricker model**](https://en.wikipedia.org/wiki/Ricker_model), after the author of an influential paper illustrating its application in the context of fisheries (Ricker (1954), ***Journal of the Fisheries Research Board of Canada*** 11: 559–623.).
+
+It is specified by the following equation:
+
+$$N_{t+1} = N_t*e^{r\left(1-\frac{N_t}{K}\right)}$$
+**Fun exercise:** Try to identify the similarities with the logistic function!
+
+Now, let's try to write the code in R that will help us calculate the temporal dynamics (i.e. changes in numbers through time) of a model population.
+
+```{r ricker-model}
+# Simulating the Ricker population growth function over 40 time-steps
+
+r <- 0.5				# Intrinsic Growth Rate
+K <- 20				# Carrying Capacity
+Tmax <- 40			# Maximum simulation time
+
+N <- matrix(0, nrow = Tmax, ncol = 1)	# Pre-allocate population vector
+N[1] <- 1						# Initialise population size
+
+# Simulate Ricker population growth over time
+for (t in 1:(Tmax-1)) {
+	N[t+1] <- N[t]*exp(r*(1-N[t]/K))
+}
+
+plot(N, type = 'l', lwd = 2, xlab = 'Time, t', ylab = 'Population size, N(t)')
+
+
+```
+
+
+We can analyse the outcome of the population dynamics modelled using the Ricker equation (and any other population dynamics for that matter) in different ways.
+
+### 2.1.3 Bifurcation diagram
+
+Logistic models like the Ricker equation above are capable of producing very **interesting and complicated dynamics**, including chaotic ones. Ecologists are sometimes interested in understanding the conditions under which populations might change their "behaviour", i.e. the qualitative shape of the dynamics they produce. For example, systems might either reach a **single point equilibrium**, or **fluctuate between values in a cycle** or even yield seemingly **unpredictable dynamics** depending on parameter values.
+
+One way of visualizing this possible set of outcomes is to vary the value of a specific parameter and look at each individual final result in a single plot. In our case, trying different values of r (the intrinsic growth rate) and looking at how many different population sizes the model goes through after the initial transient dynamics.
+
+```{r bifurcation}
+r.values <- seq(1.5, 3.5, length.out = 200) 	# r-values examined
+K <- 20								  # Carrying Capacity
+Tmax <- 500							# Length of simulations
+
+N <- matrix(0, length(r.values), Tmax)			# Pre-allocate N
+N[,1] <- 1								                  # Initiate all N[1] = 1
+
+for (i in 1:length(r.values)){
+	r <- r.values[i]			# Select the i-th r-value to examine
+	for (t in 1:(Tmax-1)) {
+		N[i, t+1] <- N[i, t]*exp(r*(1- N[i, t]/K))
+	}
+}
+
+# Bifurcation plot showing temporal dynamics across different r-values
+# ‘cex’ reduces the point size.
+matplot(r.values, N[, 401:500], pch = 16, cex = 0.25, xlab = "r-value", ylab = "Population size over time")
+
+```
+
+This behaviour has been extensively studied across systems in a more general form, the **logistic map**:
+
+$$x_{n+1} = rx_n(1-x_n)$$
+**Check it out!**
+
+```{r bifurcation-video, echo=FALSE}
+require(vembedr)
+embed_url("https://www.youtube.com/watch?v=ovJcsL7vyrk")
+```
+
+
+## 2.2 Predator-prey interactions
+
+The development of predictive frameworks for complex ecosystems relies on mathematical and computational tools. One approach is the use of ordinary differential equations (ODEs) to simulate network dynamics. **The history of dynamical modelling of this kind in ecology began back in the 1920's with the works by Alfred J. Lotka and Vito Volterra**. Lotka and Volterra developed independently a similar set of two coupled differential equations to study the dynamics of biological systems in general (Lotka) and the effect of restricting fisheries for predatory fish in the Adriatic Sea (Volterra). These equations have become to be known as the Lotka-Volterra model, and it is one of the most used mathematical models in ecology to study the temporal dynamics of predator and prey populations.
+
+![](lesson-images/lotka-volterra.png){width="200px" style="float:right; padding-left:10px"}
+
+$$
+\frac{dx}{dt} = \alpha x - \beta xy
+$$
+<br>
+$$
+\frac{dy}{dt} = \delta xy - \gamma y
+$$
+where $x$ and $y$ are the abundances of prey and predator respectively, and $\alpha, \beta,\delta,$ and $\gamma$ are the model parameters that control the intrinsic growth rate of the prey species, the prey loss due to predatory attack, the gain of the predator when consuming prey (which includes the efficiency of the energy transfer across trophic levels), and the death rate of predators, respectively.
+
+Here, our focus is on how to use these coupled equations to simulate dynamics of many species in a network with a given pattern of connectivity that determines these interactions. In the general case of the equations above, when extended to many species we can write the equations in a comprised format thus:
+
+$$
+\frac{dN_i}{dt} = N_i \left(b_i + \sum_{j=1}^{n} \alpha_{ij}N_j \right) , i = 1 ... n
+$$
+where $N_i$ are the abundance of species $i$, $b_i$ is the intrinsic growth (or death) rate of species $i$ (positive for intrinsically growing basal species, and negative for consumers), and the $\alpha_{ij}$'s represent the interaction coefficients between species. If we further compact all interaction coefficients into matricial form, and represent abundances and growth rates as vectors we obtain:
+
+$$
+\frac{dN}{dt} = N * (b+AN)
+$$
+
+To solve a system of ODEs like the one above numerically, we can use programming libraries available that perform the numerical integration for us. These are available across many platforms, although here we stick to R.
+
+```{r, generalised-lv, warning=FALSE, error=FALSE, message=FALSE}
+# loading required libraries
+require(deSolve)
+require(igraph)
+
+# Defining the generalised Lotka-Volterra model
+# Taken from Allesina's code (see link in the text)
+generalised.LV <- function(t, x, parameters){
+  with(as.list(c(x, parameters)), {
+    x[x < 10^-8] <- 0 # to avoid prevent numerical problems
+    dxdt <- x * (b + A %*% x)
+    list(dxdt)
+  })
+}
+
+# This function is for performing simulation experiments
+run_community_dynamics <- function(A, b, init_abs=NULL){
+  nb_species <- dim(A)[1]			# the number of species
+  nb_pos <- length(which(A > 0))		# the number of + interactions
+  nb_neg <- length(which(A < 0))		# the number of - interactions
+  pos <- runif(nb_pos, 0, 0.05)	# uniform distribution positive effects
+  neg <- runif(nb_neg, -0.5, 0)	# uniform distribution negative effects
+  
+  A[A<0] <- neg
+  A[A>0] <- pos
+  
+  # initial abundances from a uniform distribution between 0 and 1
+  if(is.null(init_abs))
+    N0 <- runif(nb_species, 0.01, .1)
+  else
+    N0 <- init_abs
+  
+  # definition of time
+  t.values <- seq(0, 500, by=0.01)
+  
+  # here we set the values of the parameters that the equations take
+  params <- list(b = b, A = A)
+  
+  # solve numerically
+  glv.out <- ode(y = N0, times = t.values, func = generalised.LV, parms = params)
+  return(glv.out)
+}
+
+set.seed(924)				# setting seed for reproducibility
+
+# We define the interaction matrix / network A
+A <- matrix(c(-1,-1,0,0,-1,0,
+              1,0,-1,1,0,0,
+              0,1,0,0,0,0,
+              0,-1,0,-1,-1,0,
+              1,0,0,1,0,-1,
+              0,0,0,0,1,0), 6, 6, byrow = TRUE)
+
+
+# here we run the simulations using the network above
+b <- c(1, -0.02, -0.02, 1, -0.02, -0.02)
+output <- run_community_dynamics(A, b)
+
+# And we plot the results...
+##### Stuff for layouting the network ######
+## This is just layouting instructions for the network to look pretty. Don’t waste too much time in this
+food_web_layout <- matrix(c( -1.37859603, -3.5772072,
+                             -1.37859603, -0.0374094,
+                             -1.37859603,  3.5772072,
+                             1.37859603, -3.5772072,
+                             1.37859603, -0.0374094,
+                             1.37859603,   3.5772072), 6, 2, byrow=TRUE)
+
+# This is to ensure we plot the network as we want to see it
+A_plot <- t(A)
+diag(A_plot) <- 0
+g <- graph_from_adjacency_matrix(A_plot)
+
+# defining the colours for the figures
+colours <- c('red2', 'black', 'darkolivegreen3', 'darkcyan', 'darkorchid1', 'blue')
+##################
+
+
+par(fig=c(0,10,0,10)/10)
+par(mar=c(5,5,0,0))
+matplot((output[,c(2:7)]), type = 'l', lty = 1, lwd = 2, ylab='Abudance', xlab='Time',col= colours, ylim=c(0,5))
+par(fig=c(6.5,9.5,5.5,10)/10)
+par(new=T, mar=c(0,0,0,1))
+plot(g, layout=food_web_layout, vertex.color = colours, vertex.label.color='white', vertex.size=25, vertex.label.cex=1)
+```
+
+In this network we can calculate some properties such as the number of nodes, number of links, and average number of links per species.
+
+```{r, warning=FALSE, echo=TRUE, error=FALSE, message=FALSE}
+require(igraph)
+
+adj_mat <- A
+adj_mat[adj_mat == -1] <- 0
+
+g <- graph_from_adjacency_matrix(adj_mat)
+S <- vcount(g)
+L <- ecount(g)
+L.S <- L/S
+
+print(paste0('Species = ', S, ', interactions = ', L, ', mean degree = ', L.S))
+```
+
+On models like this we can then remove or add species and assess the effect that those perturbations have on the resulting community. For example, removing species 4 from the network above results in more stable populations of consumers (i.e. less drastic fluctuations) and reduced abundance of top predator species (compare abundances of top species 3 across plots).
+
+```{r, extinction, warning=FALSE, echo=TRUE, error=FALSE, message=FALSE}
+# We remove species 4 from the system and have to redefine the network and the parameter vectors
+# We extract initial abundances from the previous outcome
+cur_abs <- output[dim(output)[1], -c(1,5)]
+
+A_no_4 <- matrix(c(-1,-1,0,-1,0,
+                   1,0,-1,0,0,
+                   0,1,0,0,0,
+                   1,0,0,0,-1,
+                   0,0,0,1,0), 5, 5, byrow = TRUE)
+
+
+set.seed(924)				# setting seed
+b <- c(1, -0.02, -0.02, -0.02, -0.02)
+output_extinction <- run_community_dynamics(A_no_4, b, cur_abs)
+
+# plotting the results
+# new network (without species 4) requires new layout
+food_web_layout_2 <- matrix(c( -1.37859603, -3.5772072,
+                               -1.37859603, -0.0374094,
+                               -1.37859603,  3.5772072,
+                               1.37859603, -0.0374094,
+                               1.37859603,   3.5772072), 5, 2, byrow=TRUE)
+
+# again just to plot the new network
+A_plot <- t(A_no_4)
+diag(A_plot) <- 0
+g <- graph_from_adjacency_matrix(A_plot)
+
+par(fig=c(0,10,0,10)/10)
+par(mar=c(5,5,0,0))
+matplot((output_extinction[,c(2:6)]), type = 'l', lty = 1, lwd = 2, ylab='Abudance', xlab='Time', col=colours[-4])
+par(fig=c(6.5,9.5,5.5,10)/10)
+par(new=T, mar=c(0,0,0,1))
+
+plot(g, layout=food_web_layout_2, vertex.color = colours[-4], vertex.label.color='white', vertex.size=25, vertex.label.cex=1, vertex.label=c(1:3, 5,6))
+```
+
+To assess the effect of the removal on the structure of the network we can calculate the same properties (i.e. the number of nodes, number of links, and average number of links per species) and compare them to the original network.
+
+```{r, warning=FALSE, echo=TRUE, error=FALSE, message=FALSE}
+require(igraph)
+
+adj_mat <- A_no_4
+adj_mat[adj_mat == -1] <- 0
+
+g <- graph_from_adjacency_matrix(adj_mat)
+S <- vcount(g)
+L <- ecount(g)
+L.S <- L/S
+
+print(paste0('Species = ', S, ', interactions = ', L, ', mean degree = ', L.S))
+```
+
+One of the challenges in setting up models like the Generalised Lotka-Volterra is that when many species are considered, it is difficult to find a combination of parameters (growth rates and interaction terms) that yield persistent communities (i.e. the system becomes quickly unstable for many species). This difficulty has been tackled by many ecologists over the last few decades and the current models used to simulate ecological dynamics in complex networks have increased in complexity and level of biological and ecological detail. One of the most popular formulations currently used by food web ecologists to model dynamics in complex food webs is the **Bio-Energetic Model**. The Bio-Energetic Model incorporates the scaling of vital rates with species body size (given by trophic position in the food web), as well as more realistic (saturating) functional responses. This additions make the system more stable and capable of maintaining many interacting species.
+
+In a couple of recent papers, I used this model to investigate [the effects of invasions of complex food webs comprising many species](https://www.frontiersin.org/articles/10.3389/fevo.2014.00036/full) (~60) and also, by making the species' vital rates dependent not only on body size but also temperature, to explore the [synergistic effects of increased temperatures and invasions on food webs](https://royalsocietypublishing.org/doi/full/10.1098/rspb.2020.2622). If you are interested you can explore this modelling framework which is available from my repository: https://github.com/mlurgi/temperature-dependent-invasions
+
+
+## References
+
+Cowie, RH, Bouchet, P and Fontaine, B (2022) The Sixth Mass Extinction: fact, fiction or speculation? ***Biological Reviews***, 97, 640-663.
+
+Dunne, JA. and Williams RJ (2009) Cascading extinctions and community collapse in model food webs. ***Phil. Trans. R. Soc. B*** 364, 1711–1723.
+
+Hagen, M. et al. (2012) Biodiversity, species interactions and ecological networks in a fragmented world. ***Adv. in Ecol. Res.***, 46, 89-210.
+
+Lurgi, M. et al. (2012) Novel communities from climate change. ***Phil. Trans. Roy. Soc. B.*** 367, 2913-2922.
+
+Lurgi, M., Galiana, N., López BC., Joppa, LN. and Montoya, JM. (2014) Network complexity and species traits mediate the effects of biological invasions on dynamic food webs. ***Frontiers in Ecology and Evolution***, 2:36.
